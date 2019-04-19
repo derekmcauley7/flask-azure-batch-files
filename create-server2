@@ -1,0 +1,65 @@
+#!/bin/bash
+
+RESOURCE_GROUP="Resource-Flask"
+
+echo "creating resource group..."
+
+az group create -l westus -n $RESOURCE_GROUP > /dev/null;
+
+VIRTUAL_MACHINE="Flask-APP"
+
+echo "Creating virtual machine..."
+
+az vm create -n $VIRTUAL_MACHINE -g $RESOURCE_GROUP --image UbuntuLTS > /dev/null;
+
+PORT="8080"
+
+echo "Opening port '$PORT' on '$VIRTUAL_MACHINE'..."
+
+az vm open-port -g $RESOURCE_GROUP -n $VIRTUAL_MACHINE --port $PORT > /dev/null;
+
+VM_IP=$(az vm list-ip-addresses -g $RESOURCE_GROUP \
+    -n $VIRTUAL_MACHINE --query "[].virtualMachine.network.publicIpAddresses[*].ipAddress" -o tsv)
+
+"Virtual Machine IP is $VM_IP"
+
+echo "Opening incoming all ports"
+az vm open-port -g FlaskResources -n FlaskResources --port 8080
+
+echo "Downloading and installing Python 3.3 version"
+ssh $VM_IP 'cd /usr/src'
+ssh $VM_IP 'wget https://www.python.org/ftp/python/3.5.6/Python-3.5.6.tgz'
+ssh $VM_IP 'sudo tar xzf Python-3.5.6.tgz'
+ssh $VM_IP 'cd Python-3.5.6'
+ssh $VM_IP 'sudo ./configure --enable-optimizations'
+ssh $VM_IP 'sudo make altinstall'
+
+echo "Cloning app from github..."
+ssh $VM_IP 'git clone https://github.com/derekmcauley7/flask-app.git'
+
+echo "Installing pip..."
+ssh $VM_IP 'sudo apt-get install python3-pip'
+
+echo "Installing flask..."
+ssh $VM_IP 'sudo pip3 install Flask'
+
+echo "Starting app..."
+ssh $VM_IP 'cd flask-app && python3 main.py'
+
+
+echo "Sending curl request to server"
+json=$(curl http://$VM_IP:8080/status )
+echo 'printing all json....'
+echo $json
+
+echo 'Parsing hostname'
+echo $json| jq '.hostname'
+
+echo 'Parsing ip_address'
+echo $json| jq '.ip_address'
+
+echo 'Parsing cpus'
+echo $json| jq '.cpus'
+
+echo 'Parsing ram'
+echo $json| jq '.memory '

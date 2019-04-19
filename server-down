@@ -1,0 +1,13 @@
+echo "Running show query"
+az vm show --name Flask-APP --resource-group Resource-Flask
+echo "Network networkInterfaces query"
+az vm show --name Flask-APP \
+  --resource-group Resource-Flask \
+  --query 'networkProfile.networkInterfaces[].id' \
+  --output tsv
+
+echo "Removing  the resource group"
+az group delete --name Resource-Flask --no-wait
+echo "Deleting the server..."
+az group wait --name FlaskResources --deleted
+
